@@ -1,6 +1,5 @@
 #import <Foundation/Foundation.h>
-
-@class JSContext;
+#import <JavaScriptCore/JavaScriptCore.h>
 
 /**
  This class wraps a `JSContext` and listens a TCP server, accepting 
@@ -15,7 +14,7 @@
  @param context the supplied context
  @param compilerOutputDirectory the compiler output directory
  */
--(id)initWithContext:(JSContext*)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory;
+-(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory;
 
 /**
  Starts server listening and wrapping a context.

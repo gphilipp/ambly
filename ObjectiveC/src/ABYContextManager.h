@@ -1,9 +1,8 @@
 #import <Foundation/Foundation.h>
-
-@class JSContext;
+#import <JavaScriptCore/JavaScriptCore.h>
 
 /**
- This class manages a `JSContext` instance, providing various methods for enriching 
+ This class manages a `JSGlobalContextRef` instance, providing various methods for enriching
  the JavaScriptCore execution environment with a few extra things that are either 
  needed or nice for ClojureScript execution.
  */
@@ -12,7 +11,7 @@
 /**
  The context being managed.
  */
-@property (strong, nonatomic, readonly) JSContext* context;
+@property (assign, nonatomic, readonly) JSGlobalContextRef context;
 
 /**
  Initializes with a compiler output directory, accepting an externally-created JSContext.
@@ -20,7 +19,7 @@
  @param context the JavaScriptCore context
  @param compilerOutputDirectory the compiler output directory
  */
--(id)initWithContext:(JSContext*)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory;
+-(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory;
 
 /**
  Sets up global context in the managed context.

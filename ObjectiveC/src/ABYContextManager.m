@@ -1,12 +1,8 @@
 #import "ABYContextManager.h"
 
 #include <libkern/OSAtomic.h>
-#import <JavaScriptCore/JavaScriptCore.h>
 
 @interface ABYContextManager()
-
-// The context being managed
-@property (strong, nonatomic) JSContext* context;
 
 // The compiler output directory
 @property (strong, nonatomic) NSURL* compilerOutputDirectory;
@@ -15,10 +11,10 @@
 
 @implementation ABYContextManager
 
--(id)initWithContext:(JSContext*)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
+-(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
     if (self = [super init]) {
-        self.context = context;
+        _context = JSGlobalContextRetain(context);
         self.compilerOutputDirectory = compilerOutputDirectory;
     }
     return self;
@@ -26,27 +22,36 @@
 
 - (void)setupGlobalContext
 {
-    [self.context evaluateScript:@"var global = this"];
+    // TODO
+    //[self.context evaluateScript:@"var global = this"];
 }
 
 - (void)setUpExceptionLogging
 {
+    // TODO
+    /*
     self.context.exceptionHandler = ^(JSContext *context, JSValue *exception) {
         NSString* errorString = [NSString stringWithFormat:@"[%@:%@:%@] %@\n%@", exception[@"sourceURL"], exception[@"line"], exception[@"column"], exception, [exception[@"stack"] toObject]];
         NSLog(@"%@", errorString);
     };
+    */
 }
 
 - (void)setUpConsoleLog
 {
+    // TODO
+    /*
     [self.context evaluateScript:@"var console = {}"];
     self.context[@"console"][@"log"] = ^(NSString *message) {
         NSLog(@"%@", message);
     };
+    */
 }
 
 - (void)setUpTimerFunctionality
 {
+    // TODO
+    /*
     static volatile int32_t counter = 0;
     
     NSString* callbackImpl = @"var callbackstore = {};\nvar setTimeout = function( fn, ms ) {\ncallbackstore[setTimeoutFn(ms)] = fn;\n}\nvar runTimeout = function( id ) {\nif( callbackstore[id] )\ncallbackstore[id]();\ncallbackstore[id] = null;\n}\n";
@@ -66,13 +71,21 @@
         
         return str;
     };
+    */
 }
 
 - (void)setUpAmblyImportScript
 {
-    __weak typeof(self) weakSelf = self;
+    // TODO
     
-    self.context[@"AMBLY_IMPORT_SCRIPT"] = ^(NSString *path) {
+    //JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"AMBLY_IMPORT_SCRIPT");
+    //JSObjectSetProperty(_context, JSContextGetGlobalObject(_context), propertyName, NULL, NULL, NULL);
+    //JSStringRelease(propertyName);
+    
+    /*
+    __weak typeof(self) weakSelf = self;
+    JSContext* context = [JSContext contextWithJSGlobalContextRef:_context];
+    context[@"AMBLY_IMPORT_SCRIPT"] = ^(NSString *path) {
         
         NSString* readPath = [NSString stringWithFormat:@"%@/%@", weakSelf.compilerOutputDirectory.path, path];
         
@@ -87,10 +100,15 @@
         
         return [JSValue valueWithUndefinedInContext:currentContext];
     };
+    */
+    
 }
 
 -(void)bootstrapWithDepsFilePath:(NSString*)depsFilePath googBasePath:(NSString*)googBasePath
 {
+    // TODO
+    
+    /*
     // This implementation mirrors the bootstrapping code that is in -setup
     
     // Setup CLOSURE_IMPORT_SCRIPT
@@ -139,6 +157,7 @@
      "       return null;\n"
      "   }\n"
      "});"];
+     */
 }
 
 @end

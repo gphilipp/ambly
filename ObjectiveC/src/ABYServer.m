@@ -4,7 +4,6 @@
 #include <netinet/in.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <UIKit/UIDevice.h>
-#import <JavaScriptCore/JavaScriptCore.h>
 #import "GCDWebDAVServer.h"
 
 /**
@@ -49,7 +48,7 @@
 @interface ABYServer()
 
 // The context this server is wrapping
-@property (strong, nonatomic) JSContext* jsContext;
+@property (nonatomic, assign, readonly) JSGlobalContextRef jsContext;
 
 // The WebDAV server
 @property (strong, nonatomic) GCDWebDAVServer* davServer;
@@ -76,10 +75,10 @@
 
 @implementation ABYServer
 
--(id)initWithContext:(JSContext*)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
+-(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
     if (self = [super init]) {
-        self.jsContext = context;
+        _jsContext = JSGlobalContextRetain(context);
         self.compilerOutputDirectory = compilerOutputDirectory;
     }
     return self;
@@ -118,6 +117,8 @@
 
 -(void)setUpPrintCapability
 {
+    // TODO
+    /*
     __weak typeof(self) weakSelf = self;
     self.jsContext[@"AMBLY_PRINT_FN"] = ^(NSString *message) {
         if ([weakSelf isReplConnected]) {
@@ -133,36 +134,55 @@
     // now. Otherwise, the REPL Clojure side will set *print-fn*
     // after bootstrapping for ClojureScript over the TCP connection.
     [self.jsContext evaluateScript:@"if (typeof cljs !== 'undefined') { cljs.core.set_print_fn_BANG_.call(null,AMBLY_PRINT_FN); }"];
+     */
+}
+
+-(NSString*)JSValueToNSString:(JSValueRef)value
+{
+    JSStringRef JSString = JSValueToStringCopy(_jsContext, value, NULL);
+    CFStringRef string = JSStringCopyCFString(kCFAllocatorDefault, JSString);
+    JSStringRelease(JSString);
+    
+    return (__bridge_transfer NSString *)string;
 }
 
 -(void)evaluateJavaScriptAndSendResponse:(NSString*)javaScript
 {
     // Temporarily install an exception handler
+    // TODO
+    /*
     id currentExceptionHandler = self.jsContext.exceptionHandler;
     self.jsContext.exceptionHandler = ^(JSContext *context, JSValue *exception) {
         context.exception = exception;
     };
+    */
     
     // Evaluate the JavaScript
-    JSValue* result = [self.jsContext evaluateScript:javaScript];
+    JSValueRef jsError = NULL;
+    JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)javaScript);
+    JSValueRef result = JSEvaluateScript(_jsContext, javaScriptStringRef, NULL, NULL, 0, &jsError);
+    JSStringRelease(javaScriptStringRef);
     
     // Construct response dictionary
     NSDictionary* rv = nil;
+    // TODO
+    /*
     if (self.jsContext.exception) {
         rv = @{@"status": @"exception",
                @"value": self.jsContext.exception.description,
                @"stacktrace":[self.jsContext.exception valueForProperty:@"stack"].description};
         self.jsContext.exception = nil;
-    } else if (![result isUndefined] && ![result isNull]) {
+    } else*/ if (!JSValueIsUndefined(_jsContext, result) && !JSValueIsNull(_jsContext, result)) {
         rv = @{@"status": @"success",
-               @"value": result.description};
+               @"value": [self JSValueToNSString:result]};
     } else {
         rv = @{@"status": @"success",
                @"value": [NSNull null]};
     }
     
+    // TODO
     // Restore the previous excepiton handler
-    self.jsContext.exceptionHandler = currentExceptionHandler;
+    //self.jsContext.exceptionHandler = currentExceptionHandler;
     
     // Convert response dictionary to JSON
     NSError *error;
