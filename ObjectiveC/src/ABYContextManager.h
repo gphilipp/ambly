@@ -1,5 +1,5 @@
-#import <Foundation/Foundation.h>
-#import <JavaScriptCore/JavaScriptCore.h>
+#include <Foundation/Foundation.h>
+#include <JavaScriptCore/JavaScriptCore.h>
 
 /**
  This class manages a `JSGlobalContextRef` instance, providing various methods for enriching
