@@ -163,6 +163,10 @@
     JSValueRef result = JSEvaluateScript(_jsContext, javaScriptStringRef, NULL, NULL, 0, &jsError);
     JSStringRelease(javaScriptStringRef);
     
+    if (jsError) {
+        NSLog(@"%@", [self JSValueToNSString:jsError]);
+    }
+    
     // Construct response dictionary
     NSDictionary* rv = nil;
     // TODO
