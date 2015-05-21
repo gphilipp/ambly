@@ -22,8 +22,9 @@
 
 - (void)setupGlobalContext
 {
-    // TODO
-    //[self.context evaluateScript:@"var global = this"];
+    JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)@"var global = this");
+    JSEvaluateScript(_context, javaScriptStringRef, NULL, NULL, 0, NULL);
+    JSStringRelease(javaScriptStringRef);
 }
 
 - (void)setUpExceptionLogging
