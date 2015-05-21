@@ -92,6 +92,9 @@ AmblyImportScriptCb (JSContextRef     js_context,
         JSStringRef pathStrRef = JSValueToStringCopy(js_context, js_arguments[0], NULL);
         NSString* path = (__bridge NSString *) JSStringCopyCFString( kCFAllocatorDefault, pathStrRef );
         
+        NSString* url = [NSURL fileURLWithPath:path].absoluteString;
+        JSStringRef urlStringRef = JSStringCreateWithCFString((__bridge CFStringRef)url);
+        
         NSString* readPath = [NSString stringWithFormat:@"%@/%@", compilerOutputDirectoryTmp, path];
         
         NSError* error = nil;
@@ -99,17 +102,13 @@ AmblyImportScriptCb (JSContextRef     js_context,
         
         if (!error && sourceText) {
             
-            // TODO add url argument
-            
             JSValueRef jsError = NULL;
             JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)sourceText);
-            JSValueRef result = JSEvaluateScript(js_context, javaScriptStringRef, NULL, NULL, 0, &jsError);
+            JSEvaluateScript(js_context, javaScriptStringRef, NULL, urlStringRef, 0, &jsError);
             JSStringRelease(javaScriptStringRef);
-            
-            // was: [currentContext evaluateScript:sourceText withSourceURL:[NSURL fileURLWithPath:path]];
         }
-
         
+        JSStringRelease(urlStringRef);
     }
     
     return js_value;
@@ -124,27 +123,6 @@ AmblyImportScriptCb (JSContextRef     js_context,
                         JSObjectMakeFunctionWithCallback(_context, NULL, AmblyImportScriptCb),
                         0, NULL);
     JSStringRelease(propertyName);
-    
-    /*
-    __weak typeof(self) weakSelf = self;
-    JSContext* context = [JSContext contextWithJSGlobalContextRef:_context];
-    context[@"AMBLY_IMPORT_SCRIPT"] = ^(NSString *path) {
-        
-        NSString* readPath = [NSString stringWithFormat:@"%@/%@", weakSelf.compilerOutputDirectory.path, path];
-        
-        JSContext* currentContext = [JSContext currentContext];
-        
-        NSError* error = nil;
-        NSString* sourceText = [NSString stringWithContentsOfFile:readPath encoding:NSUTF8StringEncoding error:&error];
-        
-        if (!error && sourceText) {
-            [currentContext evaluateScript:sourceText withSourceURL:[NSURL fileURLWithPath:path]];
-        }
-        
-        return [JSValue valueWithUndefinedInContext:currentContext];
-    };
-    */
-    
 }
 
 -(void)bootstrapWithDepsFilePath:(NSString*)depsFilePath googBasePath:(NSString*)googBasePath
