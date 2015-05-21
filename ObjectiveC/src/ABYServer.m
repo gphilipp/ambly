@@ -115,8 +115,36 @@
     }
 }
 
+static JSValueRef
+AmblyPrintFnCb      (JSContextRef     js_context,
+                     JSObjectRef      js_function,
+                     JSObjectRef      js_this,
+                     size_t           argument_count,
+                     const JSValueRef js_arguments[],
+                     JSValueRef*      js_exception)
+{
+    JSValueRef js_value = JSValueMakeUndefined(js_context);
+    
+    if (argument_count == 1
+        && JSValueGetType (js_context, js_arguments[0]) == kJSTypeString)
+    {
+        JSStringRef pathStrRef = JSValueToStringCopy(js_context, js_arguments[0], NULL);
+        NSString* message = (__bridge NSString *) JSStringCopyCFString( kCFAllocatorDefault, pathStrRef );
+        
+        NSLog(@"Temporary Ambly Print: %@", message);
+    }
+    
+    return js_value;
+}
+
+
 -(void)setUpPrintCapability
 {
+    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"AMBLY_PRINT_FN");
+    JSObjectSetProperty(_jsContext, JSContextGetGlobalObject(_jsContext), propertyName,
+                        JSObjectMakeFunctionWithCallback(_jsContext, NULL, AmblyPrintFnCb),
+                        0, NULL);
+    JSStringRelease(propertyName);
     // TODO
     /*
     __weak typeof(self) weakSelf = self;
@@ -148,46 +176,35 @@
 
 -(void)evaluateJavaScriptAndSendResponse:(NSString*)javaScript
 {
-    // Temporarily install an exception handler
-    // TODO
-    /*
-    id currentExceptionHandler = self.jsContext.exceptionHandler;
-    self.jsContext.exceptionHandler = ^(JSContext *context, JSValue *exception) {
-        context.exception = exception;
-    };
-    */
-    
     // Evaluate the JavaScript
     JSValueRef jsError = NULL;
     JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)javaScript);
     JSValueRef result = JSEvaluateScript(_jsContext, javaScriptStringRef, NULL, NULL, 0, &jsError);
     JSStringRelease(javaScriptStringRef);
-    
+ 
+    // Extract stacktrace if an exception ocurred
+    NSString* stackDescription = nil;
     if (jsError) {
-        NSLog(@"%@", [self JSValueToNSString:jsError]);
+        JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"stack");
+        JSValueRef stack = JSObjectGetProperty(_jsContext, JSValueToObject(_jsContext, jsError, NULL), propertyName, NULL);
+        stackDescription = [self JSValueToNSString:stack];
+        JSStringRelease(propertyName);
     }
     
     // Construct response dictionary
     NSDictionary* rv = nil;
-    // TODO
-    /*
-    if (self.jsContext.exception) {
+    if (jsError) {
         rv = @{@"status": @"exception",
-               @"value": self.jsContext.exception.description,
-               @"stacktrace":[self.jsContext.exception valueForProperty:@"stack"].description};
-        self.jsContext.exception = nil;
-    } else*/ if (!JSValueIsUndefined(_jsContext, result) && !JSValueIsNull(_jsContext, result)) {
+               @"value": [self JSValueToNSString:jsError],
+               @"stacktrace":stackDescription};
+    } else if (!JSValueIsUndefined(_jsContext, result) && !JSValueIsNull(_jsContext, result)) {
         rv = @{@"status": @"success",
                @"value": [self JSValueToNSString:result]};
     } else {
         rv = @{@"status": @"success",
                @"value": [NSNull null]};
     }
-    
-    // TODO
-    // Restore the previous excepiton handler
-    //self.jsContext.exceptionHandler = currentExceptionHandler;
-    
+        
     // Convert response dictionary to JSON
     NSError *error;
     NSData* payload = [NSJSONSerialization dataWithJSONObject:rv
