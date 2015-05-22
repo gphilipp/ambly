@@ -37,6 +37,14 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     JSStringRelease(propertyName);
 }
 
+-(JSValueRef)evaluateScript:(NSString*)script
+{
+    JSStringRef scriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)script);
+    JSValueRef rv = JSEvaluateScript(_context, scriptStringRef, NULL, NULL, 0, NULL);
+    JSStringRelease(scriptStringRef);
+    return rv;
+}
+
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
     if (self = [super init]) {
@@ -48,9 +56,7 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
 
 - (void)setupGlobalContext
 {
-    JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)@"var global = this");
-    JSEvaluateScript(_context, javaScriptStringRef, NULL, NULL, 0, NULL);
-    JSStringRelease(javaScriptStringRef);
+    [self evaluateScript:@"var global = this"];
 }
 
 - (void)setUpExceptionLogging
@@ -66,13 +72,27 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
 
 - (void)setUpConsoleLog
 {
-    // TODO
-    /*
-    [self.context evaluateScript:@"var console = {}"];
-    self.context[@"console"][@"log"] = ^(NSString *message) {
-        NSLog(@"%@", message);
-    };
-    */
+    [self evaluateScript:@"var console = {}"];
+    
+    JSObjectRef callbackFunction =
+    [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
+        
+        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
+        {
+            JSStringRef messageStringRef = JSValueToStringCopy(ctx, argv[0], NULL);
+            NSString* message = (__bridge NSString *) JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
+            NSLog(@"%@", message);
+            JSStringRelease(messageStringRef);
+        }
+        
+        return JSValueMakeUndefined(ctx);
+    }];
+    
+    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"console");
+    [self setValue:callbackFunction
+          onObject:JSValueToObject(_context, JSObjectGetProperty(_context, JSContextGetGlobalObject(_context), propertyName, NULL), NULL)
+       forProperty:@"log"];
+    JSStringRelease(propertyName);
 }
 
 - (void)setUpTimerFunctionality
