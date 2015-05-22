@@ -28,11 +28,6 @@
 - (void)setupGlobalContext;
 
 /**
- Sets up exception logging for the managed context.
- */
-- (void)setUpExceptionLogging;
-
-/**
  Sets up console logging for the managed context.
  */
 - (void)setUpConsoleLog;

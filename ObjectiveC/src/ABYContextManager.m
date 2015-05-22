@@ -59,17 +59,6 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     [self evaluateScript:@"var global = this"];
 }
 
-- (void)setUpExceptionLogging
-{
-    // TODO
-    /*
-    self.context.exceptionHandler = ^(JSContext *context, JSValue *exception) {
-        NSString* errorString = [NSString stringWithFormat:@"[%@:%@:%@] %@\n%@", exception[@"sourceURL"], exception[@"line"], exception[@"column"], exception, [exception[@"stack"] toObject]];
-        NSLog(@"%@", errorString);
-    };
-    */
-}
-
 - (void)setUpConsoleLog
 {
     [self evaluateScript:@"var console = {}"];
