@@ -30,6 +30,13 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     return JSObjectMake( _context, jsBlockFunctionClass, (void*)CFBridgingRetain(block) );
 }
 
+-(void)setValue:(JSValueRef)value onObject:(JSObjectRef)object forProperty:(NSString*)property
+{
+    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)property);
+    JSObjectSetProperty(_context, object, propertyName, value, 0, NULL);
+    JSStringRelease(propertyName);
+}
+
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
     if (self = [super init]) {
@@ -94,7 +101,7 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     */
 }
 
-- (void)setUpAmblyImportScript
+-(void)setUpAmblyImportScript
 {
     NSString* compilerOutputDirectoryPath = self.compilerOutputDirectory.path;
     
@@ -129,9 +136,8 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
         return JSValueMakeUndefined(ctx);
     }];
     
-    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"AMBLY_IMPORT_SCRIPT");
-    JSObjectSetProperty(_context, JSContextGetGlobalObject(_context), propertyName, callbackFunction, 0, NULL);
-    JSStringRelease(propertyName);
+    
+    [self setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"AMBLY_IMPORT_SCRIPT"];
 }
 
 -(void)bootstrapWithDepsFilePath:(NSString*)depsFilePath googBasePath:(NSString*)googBasePath
