@@ -20,14 +20,14 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
 @implementation ABYContextManager
 
 - (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block {
-    if( !jsBlockFunctionClass ) {
+    if(!jsBlockFunctionClass) {
         JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
         blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
         blockFunctionClassDef.finalize = nil;
         jsBlockFunctionClass = JSClassCreate(&blockFunctionClassDef);
     }
     
-    return JSObjectMake( _context, jsBlockFunctionClass, (void*)CFBridgingRetain(block) );
+    return JSObjectMake(_context, jsBlockFunctionClass, (void*)CFBridgingRetain(block));
 }
 
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
@@ -37,6 +37,13 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
         self.compilerOutputDirectory = compilerOutputDirectory;
     }
     return self;
+}
+
+-(void)dealloc
+{
+    if (jsBlockFunctionClass) {
+        JSClassRelease(jsBlockFunctionClass);
+    }
 }
 
 - (void)setupGlobalContext
