@@ -2,7 +2,15 @@
 
 #include <libkern/OSAtomic.h>
 
-@interface ABYContextManager()
+JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argc, const JSValueRef argv[], JSValueRef* exception) {
+    JSValueRef (^block)(JSContextRef ctx, size_t argc, const JSValueRef argv[]) = (__bridge JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))JSObjectGetPrivate(function);
+    JSValueRef ret = block(ctx, argc, argv);
+    return ret ? ret : JSValueMakeUndefined(ctx);
+}
+
+@interface ABYContextManager() {
+    JSClassRef jsBlockFunctionClass;
+}
 
 // The compiler output directory
 @property (strong, nonatomic) NSURL* compilerOutputDirectory;
@@ -10,6 +18,17 @@
 @end
 
 @implementation ABYContextManager
+
+- (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block {
+    if( !jsBlockFunctionClass ) {
+        JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
+        blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
+        blockFunctionClassDef.finalize = nil;
+        jsBlockFunctionClass = JSClassCreate(&blockFunctionClassDef);
+    }
+    
+    return JSObjectMake( _context, jsBlockFunctionClass, (void*)CFBridgingRetain(block) );
+}
 
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
@@ -75,54 +94,43 @@
     */
 }
 
-static NSString* compilerOutputDirectoryTmp;
-
-static JSValueRef
-AmblyImportScriptCb (JSContextRef     js_context,
-                     JSObjectRef      js_function,
-                     JSObjectRef      js_this,
-                     size_t           argument_count,
-                     const JSValueRef js_arguments[],
-                     JSValueRef*      js_exception)
-{
-    JSValueRef js_value = JSValueMakeUndefined(js_context);
-    
-    if (argument_count == 1
-        && JSValueGetType (js_context, js_arguments[0]) == kJSTypeString)
-    {
-        JSStringRef pathStrRef = JSValueToStringCopy(js_context, js_arguments[0], NULL);
-        NSString* path = (__bridge NSString *) JSStringCopyCFString( kCFAllocatorDefault, pathStrRef );
-        
-        NSString* url = [NSURL fileURLWithPath:path].absoluteString;
-        JSStringRef urlStringRef = JSStringCreateWithCFString((__bridge CFStringRef)url);
-        
-        NSString* readPath = [NSString stringWithFormat:@"%@/%@", compilerOutputDirectoryTmp, path];
-        
-        NSError* error = nil;
-        NSString* sourceText = [NSString stringWithContentsOfFile:readPath encoding:NSUTF8StringEncoding error:&error];
-        
-        if (!error && sourceText) {
-            
-            JSValueRef jsError = NULL;
-            JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)sourceText);
-            JSEvaluateScript(js_context, javaScriptStringRef, NULL, urlStringRef, 0, &jsError);
-            JSStringRelease(javaScriptStringRef);
-        }
-        
-        JSStringRelease(urlStringRef);
-    }
-    
-    return js_value;
-}
-
 - (void)setUpAmblyImportScript
 {
-    compilerOutputDirectoryTmp = self.compilerOutputDirectory.path;
+    NSString* compilerOutputDirectoryPath = self.compilerOutputDirectory.path;
+    
+    JSObjectRef callbackFunction =
+    
+    [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
+        
+        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
+        {
+            JSStringRef pathStrRef = JSValueToStringCopy(ctx, argv[0], NULL);
+            NSString* path = (__bridge NSString *) JSStringCopyCFString( kCFAllocatorDefault, pathStrRef );
+            
+            NSString* url = [NSURL fileURLWithPath:path].absoluteString;
+            JSStringRef urlStringRef = JSStringCreateWithCFString((__bridge CFStringRef)url);
+            
+            NSString* readPath = [NSString stringWithFormat:@"%@/%@", compilerOutputDirectoryPath, path];
+            
+            NSError* error = nil;
+            NSString* sourceText = [NSString stringWithContentsOfFile:readPath encoding:NSUTF8StringEncoding error:&error];
+            
+            if (!error && sourceText) {
+                
+                JSValueRef jsError = NULL;
+                JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)sourceText);
+                JSEvaluateScript(ctx, javaScriptStringRef, NULL, urlStringRef, 0, &jsError);
+                JSStringRelease(javaScriptStringRef);
+            }
+            
+            JSStringRelease(urlStringRef);
+        }
+        
+        return JSValueMakeUndefined(ctx);
+    }];
     
     JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"AMBLY_IMPORT_SCRIPT");
-    JSObjectSetProperty(_context, JSContextGetGlobalObject(_context), propertyName,
-                        JSObjectMakeFunctionWithCallback(_context, NULL, AmblyImportScriptCb),
-                        0, NULL);
+    JSObjectSetProperty(_context, JSContextGetGlobalObject(_context), propertyName, callbackFunction, 0, NULL);
     JSStringRelease(propertyName);
 }
 
