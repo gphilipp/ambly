@@ -163,7 +163,8 @@
         return JSValueMakeUndefined(ctx);
     }];
     
-    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_jsContext) forProperty:@"AMBLY_PRINT_FN" inContext:_jsContext];
+    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_jsContext) forProperty:@"AMBLY_PRINT_FN_STAR" inContext:_jsContext];
+    [ABYUtils evaluateScript:@"var AMBLY_PRINT_FN = function(msg) { AMBLY_PRINT_FN_STAR(msg); };" inContext:_jsContext];
     
     // If bootstrapping an app, the context may have already
     // been bootstrapped for ClojureScript. If so, set *print-fn*
