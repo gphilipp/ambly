@@ -1,7 +1,8 @@
 #include <JavaScriptCore/JavaScriptCore.h>
 
-JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argc, const JSValueRef argv[], JSValueRef* exception);
-
+/**
+ This class provides internal utility functions for use in the Ambly implementation.
+ */
 @interface ABYUtils : NSObject
 
 +(NSString*)stringForValue:(JSValueRef)value inContext:(JSContextRef)context;
