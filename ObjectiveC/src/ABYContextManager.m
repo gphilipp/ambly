@@ -48,13 +48,7 @@
 
 - (void)setUpExceptionLogging
 {
-    // TODO
-    /*
-    self.context.exceptionHandler = ^(JSContext *context, JSValue *exception) {
-        NSString* errorString = [NSString stringWithFormat:@"[%@:%@:%@] %@\n%@", exception[@"sourceURL"], exception[@"line"], exception[@"column"], exception, [exception[@"stack"] toObject]];
-        NSLog(@"%@", errorString);
-    };
-    */
+    NSLog(@"setUpExceptionLogging is being eliminated with move to JavaScriptCore C API");
 }
 
 - (void)setUpConsoleLog
