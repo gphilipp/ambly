@@ -1,12 +1,6 @@
 #include "ABYContextManager.h"
-
+#include "ABYUtils.h"
 #include <libkern/OSAtomic.h>
-
-JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argc, const JSValueRef argv[], JSValueRef* exception) {
-    JSValueRef (^block)(JSContextRef ctx, size_t argc, const JSValueRef argv[]) = (__bridge JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))JSObjectGetPrivate(function);
-    JSValueRef ret = block(ctx, argc, argv);
-    return ret ? ret : JSValueMakeUndefined(ctx);
-}
 
 @interface ABYContextManager() {
     JSClassRef jsBlockFunctionClass;
@@ -19,7 +13,8 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
 
 @implementation ABYContextManager
 
-- (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block {
+- (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block
+{
     if(!jsBlockFunctionClass) {
         JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
         blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
@@ -48,60 +43,71 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
 
 - (void)setupGlobalContext
 {
-    JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)@"var global = this");
-    JSEvaluateScript(_context, javaScriptStringRef, NULL, NULL, 0, NULL);
-    JSStringRelease(javaScriptStringRef);
-}
-
-- (void)setUpExceptionLogging
-{
-    // TODO
-    /*
-    self.context.exceptionHandler = ^(JSContext *context, JSValue *exception) {
-        NSString* errorString = [NSString stringWithFormat:@"[%@:%@:%@] %@\n%@", exception[@"sourceURL"], exception[@"line"], exception[@"column"], exception, [exception[@"stack"] toObject]];
-        NSLog(@"%@", errorString);
-    };
-    */
+    [ABYUtils evaluateScript:@"var global = this" inContext:_context];
 }
 
 - (void)setUpConsoleLog
 {
-    // TODO
-    /*
-    [self.context evaluateScript:@"var console = {}"];
-    self.context[@"console"][@"log"] = ^(NSString *message) {
-        NSLog(@"%@", message);
-    };
-    */
+    [ABYUtils evaluateScript:@"var console = {}" inContext:_context];
+    
+    JSObjectRef callbackFunction =
+    [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
+        
+        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
+        {
+            JSStringRef messageStringRef = JSValueToStringCopy(ctx, argv[0], NULL);
+            NSString* message = (__bridge NSString *) JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
+            NSLog(@"%@", message);
+            JSStringRelease(messageStringRef);
+        }
+        
+        return JSValueMakeUndefined(ctx);
+    }];
+    
+    [ABYUtils setValue:callbackFunction
+          onObject:JSValueToObject(_context, [ABYUtils getValueOnObject:JSContextGetGlobalObject(_context) forProperty:@"console" inContext:_context], NULL)
+       forProperty:@"log" inContext:_context];
 }
 
 - (void)setUpTimerFunctionality
 {
-    // TODO
-    /*
+    
     static volatile int32_t counter = 0;
     
     NSString* callbackImpl = @"var callbackstore = {};\nvar setTimeout = function( fn, ms ) {\ncallbackstore[setTimeoutFn(ms)] = fn;\n}\nvar runTimeout = function( id ) {\nif( callbackstore[id] )\ncallbackstore[id]();\ncallbackstore[id] = null;\n}\n";
     
-    [self.context evaluateScript:callbackImpl];
+    [ABYUtils evaluateScript:callbackImpl inContext:_context];
     
-    self.context[@"setTimeoutFn"] = ^( int ms ) {
+    __weak typeof(self) weakSelf = self;
+    
+    JSObjectRef callbackFunction =
+    [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
+        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeNumber)
+        {
+            int ms = (int)JSValueToNumber(ctx, argv[0], NULL);
+            
+            int32_t incremented = OSAtomicIncrement32(&counter);
+            
+            NSString *str = [NSString stringWithFormat:@"timer%d", incremented];
+            
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, ms * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+                [ABYUtils evaluateScript:[NSString stringWithFormat:@"runTimeout(\"%@\");", str] inContext:weakSelf.context];
+            });
+            
+            JSStringRef strRef = JSStringCreateWithCFString((__bridge CFStringRef)str);
+            JSValueRef rv = JSValueMakeString(ctx, strRef);
+            return rv;
+        }
         
-        int32_t incremented = OSAtomicIncrement32(&counter);
-        
-        NSString *str = [NSString stringWithFormat:@"timer%d", incremented];
-        
-        JSValue *timeOutCallback = [JSContext currentContext][@"runTimeout"];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, ms * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-            [timeOutCallback callWithArguments: @[str]];
-        });
-        
-        return str;
-    };
-    */
+        return JSValueMakeUndefined(ctx);
+    }];
+    
+    
+    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"setTimeoutFn" inContext:_context];
+    
 }
 
-- (void)setUpAmblyImportScript
+-(void)setUpAmblyImportScript
 {
     NSString* compilerOutputDirectoryPath = self.compilerOutputDirectory.path;
     
@@ -136,9 +142,7 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
         return JSValueMakeUndefined(ctx);
     }];
     
-    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"AMBLY_IMPORT_SCRIPT");
-    JSObjectSetProperty(_context, JSContextGetGlobalObject(_context), propertyName, callbackFunction, 0, NULL);
-    JSStringRelease(propertyName);
+    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"AMBLY_IMPORT_SCRIPT" inContext:_context];
 }
 
 -(void)bootstrapWithDepsFilePath:(NSString*)depsFilePath googBasePath:(NSString*)googBasePath
