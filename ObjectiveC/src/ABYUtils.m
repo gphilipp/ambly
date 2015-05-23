@@ -40,4 +40,27 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     return rv;
 }
 
++(JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block inContext:(JSContextRef)context
+{
+    static JSClassRef jsBlockFunctionClass;
+    if(!jsBlockFunctionClass) {
+        JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
+        blockFunctionClassDef.attributes = kJSClassAttributeNoAutomaticPrototype;
+        blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
+        blockFunctionClassDef.finalize = nil;
+        jsBlockFunctionClass = JSClassCreate(&blockFunctionClassDef);
+    }
+    
+    return JSObjectMake(context, jsBlockFunctionClass, (void*)CFBridgingRetain(block));
+}
+
++(void)installGlobalFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block name:(NSString*)name argList:(NSString*)argList inContext:(JSContextRef)context
+{
+    NSString* internalObjectName = [NSString stringWithFormat:@"___AMBLY_INTERNAL_%@", name];
+    
+    [ABYUtils setValue:[ABYUtils createFunctionWithBlock:block inContext:context]
+              onObject:JSContextGetGlobalObject(context) forProperty:internalObjectName inContext:context];
+    [ABYUtils evaluateScript:[NSString stringWithFormat:@"var %@ = function(%@) { return %@(%@); };", name, argList, internalObjectName, argList] inContext:context];
+}
+
 @end

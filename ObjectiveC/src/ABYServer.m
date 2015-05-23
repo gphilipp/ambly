@@ -46,9 +46,7 @@
 
 @end
 
-@interface ABYServer() {
-    JSClassRef jsBlockFunctionClass;
-}
+@interface ABYServer()
 
 // The context this server is wrapping
 @property (nonatomic, assign, readonly) JSGlobalContextRef jsContext;
@@ -78,18 +76,6 @@
 
 @implementation ABYServer
 
-- (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block
-{
-    if( !jsBlockFunctionClass ) {
-        JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
-        blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
-        blockFunctionClassDef.finalize = nil;
-        jsBlockFunctionClass = JSClassCreate(&blockFunctionClassDef);
-    }
-    
-    return JSObjectMake( _jsContext, jsBlockFunctionClass, (void*)CFBridgingRetain(block) );
-}
-
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
     if (self = [super init]) {
@@ -97,13 +83,6 @@
         self.compilerOutputDirectory = compilerOutputDirectory;
     }
     return self;
-}
-
--(void)dealloc
-{
-    if (jsBlockFunctionClass) {
-        JSClassRelease(jsBlockFunctionClass);
-    }
 }
 
 -(BOOL)isReplConnected
@@ -141,30 +120,30 @@
 {
     __weak typeof(self) weakSelf = self;
     
-    JSObjectRef callbackFunction =
-    
-    [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
-        
-        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
-        {
-            JSStringRef messageStringRef = JSValueToStringCopy(ctx, argv[0], NULL);
-            NSString* message = (__bridge NSString *) JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
-            
-            if ([weakSelf isReplConnected]) {
-                NSData* payload = [message dataUsingEncoding:NSUTF8StringEncoding];
-                [weakSelf sendMessage:[[ABYMessage alloc] initWithPayload:payload terminator:1]];
-            } else {
-                NSLog(@"%@", message);
-            }
-            
-            JSStringRelease(messageStringRef);
-        }
-        
-        return JSValueMakeUndefined(ctx);
-    }];
-    
-    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_jsContext) forProperty:@"AMBLY_PRINT_FN_STAR" inContext:_jsContext];
-    [ABYUtils evaluateScript:@"var AMBLY_PRINT_FN = function(msg) { AMBLY_PRINT_FN_STAR(msg); };" inContext:_jsContext];
+    [ABYUtils installGlobalFunctionWithBlock:
+     
+     ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
+         
+         if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
+         {
+             JSStringRef messageStringRef = JSValueToStringCopy(ctx, argv[0], NULL);
+             NSString* message = (__bridge NSString *) JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
+             
+             if ([weakSelf isReplConnected]) {
+                 NSData* payload = [message dataUsingEncoding:NSUTF8StringEncoding];
+                 [weakSelf sendMessage:[[ABYMessage alloc] initWithPayload:payload terminator:1]];
+             } else {
+                 NSLog(@"%@", message);
+             }
+             
+             JSStringRelease(messageStringRef);
+         }
+         
+         return JSValueMakeUndefined(ctx);
+     }
+                                        name: @"AMBLY_PRINT_FN"
+                                     argList:@"message"
+                                   inContext:_jsContext];
     
     // If bootstrapping an app, the context may have already
     // been bootstrapped for ClojureScript. If so, set *print-fn*
