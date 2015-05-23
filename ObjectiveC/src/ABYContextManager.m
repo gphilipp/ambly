@@ -45,13 +45,13 @@
         
         return JSValueMakeUndefined(ctx);
     }
-                                        name:@"AMBLY_CONSOLE_LOG"
+                                        name:@"AMBLY_NSLOG"
                                      argList:@"message"
                                    inContext:_context];
     
     
     [ABYUtils evaluateScript:@"var console = {}" inContext:_context];
-    [ABYUtils evaluateScript:@"console.log = AMBLY_CONSOLE_LOG" inContext:_context];
+    [ABYUtils evaluateScript:@"console.log = AMBLY_NSLOG" inContext:_context];
 
 }
 
