@@ -99,6 +99,13 @@
     return self;
 }
 
+-(void)dealloc
+{
+    if (jsBlockFunctionClass) {
+        JSClassRelease(jsBlockFunctionClass);
+    }
+}
+
 -(BOOL)isReplConnected
 {
     return self.outputStream != nil;
@@ -130,56 +137,39 @@
     }
 }
 
-static JSValueRef
-AmblyPrintFnCb      (JSContextRef     js_context,
-                     JSObjectRef      js_function,
-                     JSObjectRef      js_this,
-                     size_t           argument_count,
-                     const JSValueRef js_arguments[],
-                     JSValueRef*      js_exception)
-{
-    JSValueRef js_value = JSValueMakeUndefined(js_context);
-    
-    if (argument_count == 1
-        && JSValueGetType (js_context, js_arguments[0]) == kJSTypeString)
-    {
-        JSStringRef pathStrRef = JSValueToStringCopy(js_context, js_arguments[0], NULL);
-        NSString* message = (__bridge NSString *) JSStringCopyCFString( kCFAllocatorDefault, pathStrRef );
-        
-        NSLog(@"Temporary Ambly Print: %@", message);
-    }
-    
-    return js_value;
-}
-
-
 -(void)setUpPrintCapability
 {
-    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"AMBLY_PRINT_FN");
-    JSObjectSetProperty(_jsContext, JSContextGetGlobalObject(_jsContext), propertyName,
-                        JSObjectMakeFunctionWithCallback(_jsContext, NULL, AmblyPrintFnCb),
-                        0, NULL);
-    JSStringRelease(propertyName);
-    
-    
-    // TODO
-    /*
     __weak typeof(self) weakSelf = self;
-    self.jsContext[@"AMBLY_PRINT_FN"] = ^(NSString *message) {
-        if ([weakSelf isReplConnected]) {
-            NSData* payload = [message dataUsingEncoding:NSUTF8StringEncoding];
-            [weakSelf sendMessage:[[ABYMessage alloc] initWithPayload:payload terminator:1]];
-        } else {
-            NSLog(@"%@", message);
+    
+    JSObjectRef callbackFunction =
+    
+    [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
+        
+        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
+        {
+            JSStringRef messageStringRef = JSValueToStringCopy(ctx, argv[0], NULL);
+            NSString* message = (__bridge NSString *) JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
+            
+            if ([weakSelf isReplConnected]) {
+                NSData* payload = [message dataUsingEncoding:NSUTF8StringEncoding];
+                [weakSelf sendMessage:[[ABYMessage alloc] initWithPayload:payload terminator:1]];
+            } else {
+                NSLog(@"%@", message);
+            }
+            
+            JSStringRelease(messageStringRef);
         }
-    };
+        
+        return JSValueMakeUndefined(ctx);
+    }];
+    
+    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_jsContext) forProperty:@"AMBLY_PRINT_FN" inContext:_jsContext];
     
     // If bootstrapping an app, the context may have already
     // been bootstrapped for ClojureScript. If so, set *print-fn*
     // now. Otherwise, the REPL Clojure side will set *print-fn*
     // after bootstrapping for ClojureScript over the TCP connection.
-    [self.jsContext evaluateScript:@"if (typeof cljs !== 'undefined') { cljs.core.set_print_fn_BANG_.call(null,AMBLY_PRINT_FN); }"];
-     */
+    [ABYUtils evaluateScript:@"if (typeof cljs !== 'undefined') { cljs.core.set_print_fn_BANG_.call(null,AMBLY_PRINT_FN); }" inContext:_jsContext];
 }
 
 -(void)evaluateJavaScriptAndSendResponse:(NSString*)javaScript
