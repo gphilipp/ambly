@@ -39,6 +39,7 @@ void uncaughtExceptionHandler(NSException *exception) {
     self.contextManager = [[ABYContextManager alloc] initWithContext:JSGlobalContextCreate(NULL)
                                              compilerOutputDirectory:compilerOutputDirectory];
     [self.contextManager setupGlobalContext];
+    [self.contextManager setUpExceptionLogging];
     [self.contextManager setUpConsoleLog];
     [self.contextManager setUpTimerFunctionality];
     [self.contextManager setUpAmblyImportScript];

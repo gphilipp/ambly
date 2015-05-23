@@ -46,6 +46,17 @@
     [ABYUtils evaluateScript:@"var global = this" inContext:_context];
 }
 
+- (void)setUpExceptionLogging
+{
+    // TODO
+    /*
+    self.context.exceptionHandler = ^(JSContext *context, JSValue *exception) {
+        NSString* errorString = [NSString stringWithFormat:@"[%@:%@:%@] %@\n%@", exception[@"sourceURL"], exception[@"line"], exception[@"column"], exception, [exception[@"stack"] toObject]];
+        NSLog(@"%@", errorString);
+    };
+    */
+}
+
 - (void)setUpConsoleLog
 {
     [ABYUtils evaluateScript:@"var console = {}" inContext:_context];
