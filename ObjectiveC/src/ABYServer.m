@@ -1,4 +1,5 @@
 #include "ABYServer.h"
+#include "ABYUtils.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -45,7 +46,9 @@
 
 @end
 
-@interface ABYServer()
+@interface ABYServer() {
+    JSClassRef jsBlockFunctionClass;
+}
 
 // The context this server is wrapping
 @property (nonatomic, assign, readonly) JSGlobalContextRef jsContext;
@@ -74,6 +77,18 @@
 @end
 
 @implementation ABYServer
+
+- (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block
+{
+    if( !jsBlockFunctionClass ) {
+        JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
+        blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
+        blockFunctionClassDef.finalize = nil;
+        jsBlockFunctionClass = JSClassCreate(&blockFunctionClassDef);
+    }
+    
+    return JSObjectMake( _jsContext, jsBlockFunctionClass, (void*)CFBridgingRetain(block) );
+}
 
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
@@ -145,6 +160,8 @@ AmblyPrintFnCb      (JSContextRef     js_context,
                         JSObjectMakeFunctionWithCallback(_jsContext, NULL, AmblyPrintFnCb),
                         0, NULL);
     JSStringRelease(propertyName);
+    
+    
     // TODO
     /*
     __weak typeof(self) weakSelf = self;
@@ -165,15 +182,6 @@ AmblyPrintFnCb      (JSContextRef     js_context,
      */
 }
 
--(NSString*)JSValueToNSString:(JSValueRef)value
-{
-    JSStringRef JSString = JSValueToStringCopy(_jsContext, value, NULL);
-    CFStringRef string = JSStringCopyCFString(kCFAllocatorDefault, JSString);
-    JSStringRelease(JSString);
-    
-    return (__bridge_transfer NSString *)string;
-}
-
 -(void)evaluateJavaScriptAndSendResponse:(NSString*)javaScript
 {
     // Evaluate the JavaScript
@@ -187,7 +195,7 @@ AmblyPrintFnCb      (JSContextRef     js_context,
     if (jsError) {
         JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"stack");
         JSValueRef stack = JSObjectGetProperty(_jsContext, JSValueToObject(_jsContext, jsError, NULL), propertyName, NULL);
-        stackDescription = [self JSValueToNSString:stack];
+        stackDescription = [ABYUtils stringForValue:stack inContext:_jsContext];
         JSStringRelease(propertyName);
     }
     
@@ -195,11 +203,11 @@ AmblyPrintFnCb      (JSContextRef     js_context,
     NSDictionary* rv = nil;
     if (jsError) {
         rv = @{@"status": @"exception",
-               @"value": [self JSValueToNSString:jsError],
+               @"value": [ABYUtils stringForValue:jsError inContext:_jsContext],
                @"stacktrace":stackDescription};
     } else if (!JSValueIsUndefined(_jsContext, result) && !JSValueIsNull(_jsContext, result)) {
         rv = @{@"status": @"success",
-               @"value": [self JSValueToNSString:result]};
+               @"value": [ABYUtils stringForValue:result inContext:_jsContext]};
     } else {
         rv = @{@"status": @"success",
                @"value": [NSNull null]};
