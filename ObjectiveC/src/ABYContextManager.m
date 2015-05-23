@@ -37,6 +37,14 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     JSStringRelease(propertyName);
 }
 
+-(JSValueRef)getValueOnObject:(JSObjectRef)object forProperty:(NSString*)property
+{
+    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)property);
+    JSValueRef rv = JSObjectGetProperty(_context, object, propertyName, NULL);
+    JSStringRelease(propertyName);
+    return rv;
+}
+
 -(JSValueRef)evaluateScript:(NSString*)script
 {
     JSStringRef scriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)script);
@@ -77,37 +85,47 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
         return JSValueMakeUndefined(ctx);
     }];
     
-    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"console");
     [self setValue:callbackFunction
-          onObject:JSValueToObject(_context, JSObjectGetProperty(_context, JSContextGetGlobalObject(_context), propertyName, NULL), NULL)
+          onObject:JSValueToObject(_context, [self getValueOnObject:JSContextGetGlobalObject(_context) forProperty:@"console"], NULL)
        forProperty:@"log"];
-    JSStringRelease(propertyName);
 }
 
 - (void)setUpTimerFunctionality
 {
-    // TODO
-    /*
+    
     static volatile int32_t counter = 0;
     
     NSString* callbackImpl = @"var callbackstore = {};\nvar setTimeout = function( fn, ms ) {\ncallbackstore[setTimeoutFn(ms)] = fn;\n}\nvar runTimeout = function( id ) {\nif( callbackstore[id] )\ncallbackstore[id]();\ncallbackstore[id] = null;\n}\n";
     
-    [self.context evaluateScript:callbackImpl];
+    [self evaluateScript:callbackImpl];
     
-    self.context[@"setTimeoutFn"] = ^( int ms ) {
+    __weak typeof(self) weakSelf = self;
+    
+    JSObjectRef callbackFunction =
+    [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
+        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeNumber)
+        {
+            int ms = (int)JSValueToNumber(ctx, argv[0], NULL);
+            
+            int32_t incremented = OSAtomicIncrement32(&counter);
+            
+            NSString *str = [NSString stringWithFormat:@"timer%d", incremented];
+            
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, ms * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
+                [weakSelf evaluateScript:[NSString stringWithFormat:@"runTimeout(\"%@\");", str]];
+            });
+            
+            JSStringRef strRef = JSStringCreateWithCFString((__bridge CFStringRef)str);
+            JSValueRef rv = JSValueMakeString(ctx, strRef);
+            return rv;
+        }
         
-        int32_t incremented = OSAtomicIncrement32(&counter);
-        
-        NSString *str = [NSString stringWithFormat:@"timer%d", incremented];
-        
-        JSValue *timeOutCallback = [JSContext currentContext][@"runTimeout"];
-        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, ms * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-            [timeOutCallback callWithArguments: @[str]];
-        });
-        
-        return str;
-    };
-    */
+        return JSValueMakeUndefined(ctx);
+    }];
+    
+    
+    [self setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"setTimeoutFn"];
+    
 }
 
 -(void)setUpAmblyImportScript
