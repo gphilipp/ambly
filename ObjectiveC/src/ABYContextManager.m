@@ -107,7 +107,8 @@
          if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
          {
              JSStringRef pathStrRef = JSValueToStringCopy(ctx, argv[0], NULL);
-             NSString* path = (__bridge NSString *) JSStringCopyCFString( kCFAllocatorDefault, pathStrRef );
+             NSString* path = (__bridge_transfer NSString *) JSStringCopyCFString( kCFAllocatorDefault, pathStrRef );
+             JSStringRelease(pathStrRef);
              
              NSString* url = [NSURL fileURLWithPath:path].absoluteString;
              JSStringRef urlStringRef = JSStringCreateWithCFString((__bridge CFStringRef)url);
