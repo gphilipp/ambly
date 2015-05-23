@@ -85,6 +85,7 @@
              
              JSStringRef strRef = JSStringCreateWithCFString((__bridge CFStringRef)str);
              JSValueRef rv = JSValueMakeString(ctx, strRef);
+             JSStringRelease(strRef);
              return rv;
          }
          
