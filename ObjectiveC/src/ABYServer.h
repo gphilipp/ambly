@@ -2,7 +2,7 @@
 #include <JavaScriptCore/JavaScriptCore.h>
 
 /**
- This class wraps a `JSContext` and listens a TCP server, accepting 
+ This class wraps a `JSGlobalContextRef` and listens a TCP server, accepting
  ClojureScript-REPL JavaScript expressions to evaluate, evaluating
  them in JSC, and returning the results.
  */

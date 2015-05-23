@@ -1,12 +1,6 @@
 #include "ABYContextManager.h"
-
+#include "ABYUtils.h"
 #include <libkern/OSAtomic.h>
-
-JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, JSObjectRef thisObject, size_t argc, const JSValueRef argv[], JSValueRef* exception) {
-    JSValueRef (^block)(JSContextRef ctx, size_t argc, const JSValueRef argv[]) = (__bridge JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))JSObjectGetPrivate(function);
-    JSValueRef ret = block(ctx, argc, argv);
-    return ret ? ret : JSValueMakeUndefined(ctx);
-}
 
 @interface ABYContextManager() {
     JSClassRef jsBlockFunctionClass;
@@ -19,7 +13,8 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
 
 @implementation ABYContextManager
 
-- (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block {
+- (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block
+{
     if( !jsBlockFunctionClass ) {
         JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
         blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
@@ -28,29 +23,6 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     }
     
     return JSObjectMake( _context, jsBlockFunctionClass, (void*)CFBridgingRetain(block) );
-}
-
--(void)setValue:(JSValueRef)value onObject:(JSObjectRef)object forProperty:(NSString*)property
-{
-    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)property);
-    JSObjectSetProperty(_context, object, propertyName, value, 0, NULL);
-    JSStringRelease(propertyName);
-}
-
--(JSValueRef)getValueOnObject:(JSObjectRef)object forProperty:(NSString*)property
-{
-    JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)property);
-    JSValueRef rv = JSObjectGetProperty(_context, object, propertyName, NULL);
-    JSStringRelease(propertyName);
-    return rv;
-}
-
--(JSValueRef)evaluateScript:(NSString*)script
-{
-    JSStringRef scriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)script);
-    JSValueRef rv = JSEvaluateScript(_context, scriptStringRef, NULL, NULL, 0, NULL);
-    JSStringRelease(scriptStringRef);
-    return rv;
 }
 
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
@@ -64,12 +36,12 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
 
 - (void)setupGlobalContext
 {
-    [self evaluateScript:@"var global = this"];
+    [ABYUtils evaluateScript:@"var global = this" inContext:_context];
 }
 
 - (void)setUpConsoleLog
 {
-    [self evaluateScript:@"var console = {}"];
+    [ABYUtils evaluateScript:@"var console = {}" inContext:_context];
     
     JSObjectRef callbackFunction =
     [self createFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
@@ -85,9 +57,9 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
         return JSValueMakeUndefined(ctx);
     }];
     
-    [self setValue:callbackFunction
-          onObject:JSValueToObject(_context, [self getValueOnObject:JSContextGetGlobalObject(_context) forProperty:@"console"], NULL)
-       forProperty:@"log"];
+    [ABYUtils setValue:callbackFunction
+          onObject:JSValueToObject(_context, [ABYUtils getValueOnObject:JSContextGetGlobalObject(_context) forProperty:@"console" inContext:_context], NULL)
+       forProperty:@"log" inContext:_context];
 }
 
 - (void)setUpTimerFunctionality
@@ -97,7 +69,7 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     
     NSString* callbackImpl = @"var callbackstore = {};\nvar setTimeout = function( fn, ms ) {\ncallbackstore[setTimeoutFn(ms)] = fn;\n}\nvar runTimeout = function( id ) {\nif( callbackstore[id] )\ncallbackstore[id]();\ncallbackstore[id] = null;\n}\n";
     
-    [self evaluateScript:callbackImpl];
+    [ABYUtils evaluateScript:callbackImpl inContext:_context];
     
     __weak typeof(self) weakSelf = self;
     
@@ -112,7 +84,7 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
             NSString *str = [NSString stringWithFormat:@"timer%d", incremented];
             
             dispatch_after(dispatch_time(DISPATCH_TIME_NOW, ms * NSEC_PER_MSEC), dispatch_get_main_queue(), ^{
-                [weakSelf evaluateScript:[NSString stringWithFormat:@"runTimeout(\"%@\");", str]];
+                [ABYUtils evaluateScript:[NSString stringWithFormat:@"runTimeout(\"%@\");", str] inContext:weakSelf.context];
             });
             
             JSStringRef strRef = JSStringCreateWithCFString((__bridge CFStringRef)str);
@@ -124,7 +96,7 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     }];
     
     
-    [self setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"setTimeoutFn"];
+    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"setTimeoutFn" inContext:_context];
     
 }
 
@@ -164,7 +136,7 @@ JSValueRef BlockFunctionCallAsFunction(JSContextRef ctx, JSObjectRef function, J
     }];
     
     
-    [self setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"AMBLY_IMPORT_SCRIPT"];
+    [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"AMBLY_IMPORT_SCRIPT" inContext:_context];
 }
 
 -(void)bootstrapWithDepsFilePath:(NSString*)depsFilePath googBasePath:(NSString*)googBasePath
