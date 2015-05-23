@@ -15,14 +15,14 @@
 
 - (JSObjectRef)createFunctionWithBlock:(JSValueRef (^)(JSContextRef ctx, size_t argc, const JSValueRef argv[]))block
 {
-    if( !jsBlockFunctionClass ) {
+    if(!jsBlockFunctionClass) {
         JSClassDefinition blockFunctionClassDef = kJSClassDefinitionEmpty;
         blockFunctionClassDef.callAsFunction = BlockFunctionCallAsFunction;
         blockFunctionClassDef.finalize = nil;
         jsBlockFunctionClass = JSClassCreate(&blockFunctionClassDef);
     }
     
-    return JSObjectMake( _context, jsBlockFunctionClass, (void*)CFBridgingRetain(block) );
+    return JSObjectMake(_context, jsBlockFunctionClass, (void*)CFBridgingRetain(block));
 }
 
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
@@ -32,6 +32,13 @@
         self.compilerOutputDirectory = compilerOutputDirectory;
     }
     return self;
+}
+
+-(void)dealloc
+{
+    if (jsBlockFunctionClass) {
+        JSClassRelease(jsBlockFunctionClass);
+    }
 }
 
 - (void)setupGlobalContext
@@ -134,7 +141,6 @@
         
         return JSValueMakeUndefined(ctx);
     }];
-    
     
     [ABYUtils setValue:callbackFunction onObject:JSContextGetGlobalObject(_context) forProperty:@"AMBLY_IMPORT_SCRIPT" inContext:_context];
 }
