@@ -127,7 +127,7 @@
          if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
          {
              JSStringRef messageStringRef = JSValueToStringCopy(ctx, argv[0], NULL);
-             NSString* message = (__bridge NSString *) JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
+             NSString* message = (__bridge_transfer NSString *)JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
              
              if ([weakSelf isReplConnected]) {
                  NSData* payload = [message dataUsingEncoding:NSUTF8StringEncoding];
