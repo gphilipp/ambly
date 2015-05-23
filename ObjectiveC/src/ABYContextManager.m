@@ -147,35 +147,32 @@
 
 -(void)bootstrapWithDepsFilePath:(NSString*)depsFilePath googBasePath:(NSString*)googBasePath
 {
-    // TODO
-    
-    /*
     // This implementation mirrors the bootstrapping code that is in -setup
     
     // Setup CLOSURE_IMPORT_SCRIPT
-    [self.context evaluateScript:@"CLOSURE_IMPORT_SCRIPT = function(src) { AMBLY_IMPORT_SCRIPT('goog/' + src); return true; }"];
+    [ABYUtils evaluateScript:@"CLOSURE_IMPORT_SCRIPT = function(src) { AMBLY_IMPORT_SCRIPT('goog/' + src); return true; }" inContext:_context];
     
     // Load goog base
     NSString *baseScriptString = [NSString stringWithContentsOfFile:googBasePath encoding:NSUTF8StringEncoding error:nil];
      NSAssert(baseScriptString != nil, @"The goog base JavaScript text could not be loaded");
-    [self.context evaluateScript:baseScriptString];
+    [ABYUtils evaluateScript:baseScriptString inContext:_context];
     
     // Load the deps file
     NSString *depsScriptString = [NSString stringWithContentsOfFile:depsFilePath encoding:NSUTF8StringEncoding error:nil];
     NSAssert(depsScriptString != nil, @"The deps JavaScript text could not be loaded");
-    [self.context evaluateScript:depsScriptString];
+    [ABYUtils evaluateScript:depsScriptString inContext:_context];
     
-    [self.context evaluateScript:@"goog.isProvided_ = function(x) { return false; };"];
+    [ABYUtils evaluateScript:@"goog.isProvided_ = function(x) { return false; };" inContext:_context];
     
-    [self.context evaluateScript:@"goog.require = function (name) { return CLOSURE_IMPORT_SCRIPT(goog.dependencies_.nameToPath[name]); };"];
+    [ABYUtils evaluateScript:@"goog.require = function (name) { return CLOSURE_IMPORT_SCRIPT(goog.dependencies_.nameToPath[name]); };" inContext:_context];
     
-    [self.context evaluateScript:@"goog.require('cljs.core');"];
+    [ABYUtils evaluateScript:@"goog.require('cljs.core');" inContext:_context];
     
     // TODO Is there a better way for the impl below that avoids making direct calls to
     // ClojureScript compiled artifacts? (Complex and perhaps also fragile).
     
      // redef goog.require to track loaded libs
-    [self.context evaluateScript:@"cljs.core._STAR_loaded_libs_STAR_ = new cljs.core.PersistentHashSet(null, new cljs.core.PersistentArrayMap(null, 1, ['cljs.core',null], null), null);\n"
+    [ABYUtils evaluateScript:@"cljs.core._STAR_loaded_libs_STAR_ = new cljs.core.PersistentHashSet(null, new cljs.core.PersistentArrayMap(null, 1, ['cljs.core',null], null), null);\n"
      "\n"
      "goog.require = (function (name,reload){\n"
      "   if(cljs.core.truth_((function (){var or__4112__auto__ = !(cljs.core.contains_QMARK_.call(null,cljs.core._STAR_loaded_libs_STAR_,name));\n"
@@ -197,8 +194,7 @@
      "   } else {\n"
      "       return null;\n"
      "   }\n"
-     "});"];
-     */
+     "});" inContext:_context];
 }
 
 @end
