@@ -85,6 +85,12 @@
     return self;
 }
 
+-(void)dealloc
+{
+    [self tearDown];
+    JSGlobalContextRelease(_context);
+}
+
 -(BOOL)isReplConnected
 {
     return self.outputStream != nil;

@@ -20,6 +20,11 @@
     return self;
 }
 
+-(void)dealloc
+{
+    JSGlobalContextRelease(_context);
+}
+
 - (void)setupGlobalContext
 {
     [ABYUtils evaluateScript:@"var global = this" inContext:_context];
