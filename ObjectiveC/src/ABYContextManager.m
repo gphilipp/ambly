@@ -35,12 +35,9 @@
     
     [ABYUtils installGlobalFunctionWithBlock: ^JSValueRef(JSContextRef ctx, size_t argc, const JSValueRef argv[]) {
         
-        if (argc == 1 && JSValueGetType (ctx, argv[0]) == kJSTypeString)
+        if (argc == 1)
         {
-            JSStringRef messageStringRef = JSValueToStringCopy(ctx, argv[0], NULL);
-            NSString* message = (__bridge_transfer NSString *) JSStringCopyCFString(kCFAllocatorDefault, messageStringRef);
-            NSLog(@"%@", message);
-            JSStringRelease(messageStringRef);
+            NSLog(@"%@", [ABYUtils stringForValue:argv[0] inContext:ctx]);
         }
         
         return JSValueMakeUndefined(ctx);
