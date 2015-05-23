@@ -49,7 +49,7 @@
 @interface ABYServer()
 
 // The context this server is wrapping
-@property (nonatomic, assign, readonly) JSGlobalContextRef jsContext;
+@property (nonatomic, assign, readonly) JSGlobalContextRef context;
 
 // The WebDAV server
 @property (strong, nonatomic) GCDWebDAVServer* davServer;
@@ -79,7 +79,7 @@
 -(id)initWithContext:(JSGlobalContextRef)context compilerOutputDirectory:(NSURL*)compilerOutputDirectory
 {
     if (self = [super init]) {
-        _jsContext = JSGlobalContextRetain(context);
+        _context = JSGlobalContextRetain(context);
         self.compilerOutputDirectory = compilerOutputDirectory;
     }
     return self;
@@ -143,13 +143,13 @@
      }
                                         name: @"AMBLY_PRINT_FN"
                                      argList:@"message"
-                                   inContext:_jsContext];
+                                   inContext:_context];
     
     // If bootstrapping an app, the context may have already
     // been bootstrapped for ClojureScript. If so, set *print-fn*
     // now. Otherwise, the REPL Clojure side will set *print-fn*
     // after bootstrapping for ClojureScript over the TCP connection.
-    [ABYUtils evaluateScript:@"if (typeof cljs !== 'undefined') { cljs.core.set_print_fn_BANG_.call(null,AMBLY_PRINT_FN); }" inContext:_jsContext];
+    [ABYUtils evaluateScript:@"if (typeof cljs !== 'undefined') { cljs.core.set_print_fn_BANG_.call(null,AMBLY_PRINT_FN); }" inContext:_context];
 }
 
 -(void)evaluateJavaScriptAndSendResponse:(NSString*)javaScript
@@ -157,15 +157,15 @@
     // Evaluate the JavaScript
     JSValueRef jsError = NULL;
     JSStringRef javaScriptStringRef = JSStringCreateWithCFString((__bridge CFStringRef)javaScript);
-    JSValueRef result = JSEvaluateScript(_jsContext, javaScriptStringRef, NULL, NULL, 0, &jsError);
+    JSValueRef result = JSEvaluateScript(_context, javaScriptStringRef, NULL, NULL, 0, &jsError);
     JSStringRelease(javaScriptStringRef);
  
     // Extract stacktrace if an exception ocurred
     NSString* stackDescription = nil;
     if (jsError) {
         JSStringRef propertyName = JSStringCreateWithCFString((__bridge CFStringRef)@"stack");
-        JSValueRef stack = JSObjectGetProperty(_jsContext, JSValueToObject(_jsContext, jsError, NULL), propertyName, NULL);
-        stackDescription = [ABYUtils stringForValue:stack inContext:_jsContext];
+        JSValueRef stack = JSObjectGetProperty(_context, JSValueToObject(_context, jsError, NULL), propertyName, NULL);
+        stackDescription = [ABYUtils stringForValue:stack inContext:_context];
         JSStringRelease(propertyName);
     }
     
@@ -173,11 +173,11 @@
     NSDictionary* rv = nil;
     if (jsError) {
         rv = @{@"status": @"exception",
-               @"value": [ABYUtils stringForValue:jsError inContext:_jsContext],
+               @"value": [ABYUtils stringForValue:jsError inContext:_context],
                @"stacktrace":stackDescription};
-    } else if (!JSValueIsUndefined(_jsContext, result) && !JSValueIsNull(_jsContext, result)) {
+    } else if (!JSValueIsUndefined(_context, result) && !JSValueIsNull(_context, result)) {
         rv = @{@"status": @"success",
-               @"value": [ABYUtils stringForValue:result inContext:_jsContext]};
+               @"value": [ABYUtils stringForValue:result inContext:_context]};
     } else {
         rv = @{@"status": @"success",
                @"value": [NSNull null]};
