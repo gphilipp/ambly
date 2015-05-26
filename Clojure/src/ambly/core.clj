@@ -375,7 +375,8 @@
     (str "http://" wrapped-address ":" port)))
 
 (defn- mount-webdav
-  "Mounts WebDAV, throwing upon failure."
+  "Mounts WebDAV, returning the filesystem mount point, otherwise
+  throwing upon failure."
   [repl-env bonjour-name endpoint-address endpoint-port]
   {:pre [(map? repl-env) (is-ambly-bonjour-name? bonjour-name)
          (string? endpoint-address) (number? endpoint-port)]}
@@ -388,14 +389,13 @@
       (if-not (or (mount-exists? webdav-mount-point) (.mkdirs output-dir))
         (throw (IOException. (str "Unable to create WebDAV mount point " webdav-mount-point))))
       (if (zero? (sh 1000 -1 "mount_webdav" webdav-endpoint webdav-mount-point))
-        (reset! (:webdav-mount-point repl-env) webdav-mount-point)
+        webdav-mount-point
         (if (= 4 tries)
           (throw (IOException. (str "Unable to mount WebDAV at " webdav-endpoint)))
           (do
             (umount-webdav webdav-mount-point)
             (Thread/sleep (* tries 500))
-            (recur (inc tries))))))
-    webdav-mount-point))
+            (recur (inc tries))))))))
 
 (defn- set-up-socket
   [repl-env opts address port]
@@ -424,6 +424,7 @@
           endpoint-port (:port endpoint)
           _ (reset! (:bonjour-name repl-env) bonjour-name)
           webdav-mount-point (mount-webdav repl-env bonjour-name endpoint-address endpoint-port)
+          _ (reset! (:webdav-mount-point repl-env) webdav-mount-point)
           output-dir (io/file webdav-mount-point)
           env (ana/empty-env)
           core (io/resource "cljs/core.cljs")]
