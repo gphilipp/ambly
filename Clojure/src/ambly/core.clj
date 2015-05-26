@@ -377,7 +377,7 @@
 (defn- mount-webdav
   "Mounts WebDAV, returning the filesystem mount point, otherwise
   throwing upon failure."
-  [repl-env bonjour-name endpoint-address endpoint-port]
+  [bonjour-name endpoint-address endpoint-port]
   {:pre [(map? repl-env) (is-ambly-bonjour-name? bonjour-name)
          (string? endpoint-address) (number? endpoint-port)]}
   (let [webdav-endpoint (create-http-url endpoint-address endpoint-port)
@@ -423,7 +423,7 @@
           endpoint-address (local-address-if (:address endpoint))
           endpoint-port (:port endpoint)
           _ (reset! (:bonjour-name repl-env) bonjour-name)
-          webdav-mount-point (mount-webdav repl-env bonjour-name endpoint-address endpoint-port)
+          webdav-mount-point (mount-webdav bonjour-name endpoint-address endpoint-port)
           _ (reset! (:webdav-mount-point repl-env) webdav-mount-point)
           output-dir (io/file webdav-mount-point)
           env (ana/empty-env)
