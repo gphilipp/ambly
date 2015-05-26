@@ -356,7 +356,7 @@
 (defn form-ambly-import-script-path-js
   "Takes a path and forms a JavaScript `AMBLY_IMPORT_SCRIPT` command."
   [path]
-  {:pre [(or (string? path) (instance? File path))]}
+  {:pre [(string? path)]}
   (form-ambly-import-script-expr-js (str "'" path "'")))
 
 (defn- mount-exists?
@@ -487,14 +487,14 @@
           (jsc-eval repl-env
             (str "CLOSURE_IMPORT_SCRIPT = function(src) {"
               (form-ambly-import-script-expr-js
-                (str "'goog" File/separator "' + src"))
+                "'goog/' + src")
               "return true; };"))
           ;; bootstrap
           (jsc-eval repl-env
-            (form-ambly-import-script-path-js (io/file "goog" "base.js")))
+            (form-ambly-import-script-path-js "goog/base.js"))
           ;; load the deps file so we can goog.require cljs.core etc.
           (jsc-eval repl-env
-            (form-ambly-import-script-path-js (io/file "ambly_repl_deps.js")))
+            (form-ambly-import-script-path-js "ambly_repl_deps.js"))
           ;; monkey-patch isProvided_ to avoid useless warnings - David
           (jsc-eval repl-env
             (str "goog.isProvided_ = function(x) { return false; };"))
