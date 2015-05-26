@@ -259,31 +259,30 @@
           (when-not (.isClosed (:socket @(:socket repl-env)))
             (.printStackTrace e)))))))
 
-(defn source-uri->file
-  "Takes a source URI and returns a file value suitable for inclusion
+(defn source-uri->relative-path
+  "Takes a source URI and returns a relative path value suitable for inclusion
   in a canonical stack frame."
-  [source-uri opts]
-  {:pre [(string? source-uri) (map? opts)]}
+  [source-uri]
+  {:pre [(string? source-uri)]}
   (let [uri (URI. source-uri)
         uri-scheme (.getScheme uri)]
     (case uri-scheme
-      "file" (let [uri-path (.getPath uri)
-                   relative-path (if (.startsWith uri-path "/")
-                                   (subs uri-path 1)
-                                   uri-path)]
-               (str (io/file (util/output-directory opts) relative-path)))
+      "file" (let [uri-path (.getPath uri)]
+               (if (.startsWith uri-path "/")
+                 (subs uri-path 1)
+                 uri-path))
       (str "<" source-uri ">"))))
 
 (defn stack-line->canonical-frame
   "Parses a stack line into a frame representation, returning nil
   if parse failed."
-  [stack-line opts]
-  {:pre  [(string? stack-line) (map? opts)]}
+  [stack-line]
+  {:pre  [(string? stack-line)]}
   (let [[function source-uri line column]
         (rest (re-matches #"(.*)@(.*):([0-9]+):([0-9]+)"
                 stack-line))]
     (if (and source-uri function line column)
-      {:file     (source-uri->file source-uri opts)
+      {:file     (source-uri->relative-path source-uri)
        :function function
        :line     (Long/parseLong line)
        :column   (Long/parseLong column)}
@@ -291,7 +290,7 @@
             (rest (re-matches #"(.*):([0-9]+):([0-9]+)"
                               stack-line))]
         (if (and source-uri line column)
-          {:file     (source-uri->file source-uri opts)
+          {:file     (source-uri->relative-path source-uri)
            :function nil
            :line     (Long/parseLong line)
            :column   (Long/parseLong column)}
@@ -311,7 +310,7 @@
   (let [stack-line->canonical-frame (memoize stack-line->canonical-frame)]
     (->> raw-stacktrace
          string/split-lines
-         (map #(stack-line->canonical-frame % opts))
+         (map stack-line->canonical-frame)
          (remove nil?)
          vec)))
 
