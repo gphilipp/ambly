@@ -6,7 +6,8 @@
             [cljs.compiler :as comp]
             [cljs.repl :as repl]
             [cljs.closure :as closure]
-            [clojure.data.json :as json])
+            [clojure.data.json :as json]
+            [clojure.java.shell :as shell])
   (:import java.net.Socket
            java.lang.StringBuilder
            [java.io File BufferedReader BufferedWriter IOException]
@@ -24,6 +25,7 @@
   (let [os-name (.toLowerCase (System/getProperty "os.name"))]
     (cond
       (substring-exists? os-name "mac") :mac
+      (substring-exists? os-name "win") :win
       :else :unknown)))
 
 (defn sh
@@ -381,6 +383,11 @@
       (zero? (sh 5000 -1 "umount" "-f" webdav-mount-point))
       (zero? (sh 1000 -1 "rmdir" webdav-mount-point)))))
 
+(defmethod umount-webdav :win
+  [os webdav-mount-point]
+  {:pre [(keyword? os) (string? webdav-mount-point)]}
+  (zero? (sh 5000 -1 "net" "use" webdav-mount-point "/delete")))
+
 (defmethod umount-webdav :unknown
   [os webdav-mount-point]
   {:pre [(string? webdav-mount-point)]}
@@ -421,6 +428,22 @@
             (Thread/sleep (* tries 500))
             (recur (inc tries))))))))
 
+(defn extract-drive-letter
+  "Takes the output from `net use ...` command and extracts
+  the assigned drive letter."
+  [output]
+  (str (second (re-matches #"Drive ([A-Z]?): is now connected to" output)) ":"))
+
+(defmethod mount-webdav :win
+  [os bonjour-name endpoint-address endpoint-port]
+  {:pre [(keyword? os) (is-ambly-bonjour-name? bonjour-name)
+         (string? endpoint-address) (number? endpoint-port)]}
+  (let [webdav-endpoint (create-http-url endpoint-address endpoint-port)
+        shell-result (shell/sh "net" "use" "*" webdav-endpoint)]
+   (or
+     (extract-drive-letter (subs (:out shell-result) 0 28))
+     (throw (IOException. (:err shell-result))))))
+
 (defmethod mount-webdav :unknown
   [os bonjour-name endpoint-address endpoint-port]
   {:pre [(keyword? os) (is-ambly-bonjour-name? bonjour-name)
@@ -458,6 +481,7 @@
           endpoint-port (:port endpoint)
           _ (reset! (:bonjour-name repl-env) bonjour-name)
           webdav-mount-point (mount-webdav (getOs) bonjour-name endpoint-address endpoint-port)
+          _ (println webdav-mount-point)
           _ (reset! (:webdav-mount-point repl-env) webdav-mount-point)
           output-dir (io/file webdav-mount-point)
           env (ana/empty-env)
