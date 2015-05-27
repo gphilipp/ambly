@@ -481,7 +481,6 @@
           endpoint-port (:port endpoint)
           _ (reset! (:bonjour-name repl-env) bonjour-name)
           webdav-mount-point (mount-webdav (getOs) bonjour-name endpoint-address endpoint-port)
-          _ (println webdav-mount-point)
           _ (reset! (:webdav-mount-point repl-env) webdav-mount-point)
           output-dir (io/file webdav-mount-point)
           env (ana/empty-env)
